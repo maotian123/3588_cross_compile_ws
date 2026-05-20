@@ -6,8 +6,9 @@
 .idea/
 .vscode/
 .cache/
-.claude/
 .ssh/
+__pycache__/
+*.py[cod]
 *.swp
 *.swo
 *~
@@ -15,6 +16,8 @@
 # Build and install outputs
 build/
 install/
+rk3588_build/
+rk3588_install/
 devel/
 log/
 logs/
@@ -70,4 +73,3 @@ core
 core.*
 rk3588_*_payload*
 rk3588_*_staging/
-

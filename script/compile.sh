@@ -58,7 +58,9 @@ if ! command -v aarch64-linux-gnu-g++ >/dev/null 2>&1 \
     exit 1
 fi
 
-source "$SYSROOT_ROS_DIR/setup.bash" 2>/dev/null || true
+# Do not source target ROS setup.bash on the x86 host/container.  The cross
+# build uses explicit CMAKE_PREFIX_PATH/CATKIN_PREFIX_PATH below; sourcing the
+# target setup script can terminate the shell in minimal CI images.
 
 FIX_PCL_SCRIPT="$WORKSPACE_DIR/script/fix_pcl_ros_paths.sh"
 if [ -x "$FIX_PCL_SCRIPT" ]; then

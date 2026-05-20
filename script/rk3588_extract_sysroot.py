@@ -19,10 +19,14 @@ import paramiko
 
 DEFAULT_DIRS = [
     "/tmp/rk3588_sysroot_version.txt",
+    "/etc/alternatives",
     "/usr/include",
     "/usr/lib/aarch64-linux-gnu",
-    "/lib/aarch64-linux-gnu",
     "/usr/lib/pkgconfig",
+    "/usr/lib/cmake",
+    "/usr/lib/qt5/bin",
+    "/usr/bin/aarch64-linux-gnu-qmake",
+    "/lib/aarch64-linux-gnu",
     "/usr/share/pkgconfig",
     "/usr/share/cmake",
     "/usr/share/eigen3",
@@ -64,7 +68,9 @@ def main() -> int:
     output = pathlib.Path(args.output).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     version_path = output.parent / "rk3588_sysroot_version.txt"
-    remote_tar = f"/tmp/rk3588_sysroot_{int(time.time())}.tar.gz"
+    remote_id = int(time.time())
+    remote_tar = f"/tmp/rk3588_sysroot_{remote_id}.tar.gz"
+    remote_list = f"/tmp/rk3588_sysroot_{remote_id}.list"
 
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -96,7 +102,12 @@ echo "ros: $(bash -lc 'source /opt/ros/noetic/setup.bash 2>/dev/null; echo ${ROS
     version = run(client, version_command)
     print(version.rstrip(), flush=True)
 
-    run(client, f"cat > /tmp/rk3588_sysroot_version.txt <<'EOF'\n{version}\nEOF")
+    sudo_run(
+        client,
+        args.password,
+        f"cat > /tmp/rk3588_sysroot_version.txt <<'EOF'\n{version}\nEOF",
+        timeout=60,
+    )
 
     existing_dirs = []
     for directory in DEFAULT_DIRS:
@@ -110,11 +121,20 @@ echo "ros: $(bash -lc 'source /opt/ros/noetic/setup.bash 2>/dev/null; echo ${ROS
         raise RuntimeError("no sysroot directories found")
 
     print("[INFO] Creating remote sysroot tarball. This can take a while.", flush=True)
-    tar_args = " ".join(shlex.quote(path) for path in existing_dirs)
+    list_entries = "\n".join(
+        f"printf '%s\\0' {shlex.quote(path)} >> {shlex.quote(remote_list)}"
+        for path in existing_dirs
+    )
     sudo_run(
         client,
         args.password,
-        f"tar czf {shlex.quote(remote_tar)} --warning=no-file-changed {tar_args} 2>/tmp/rk3588_sysroot_tar.err || true; test -f {shlex.quote(remote_tar)}",
+        f"""
+rm -f {shlex.quote(remote_tar)} {shlex.quote(remote_list)}
+{list_entries}
+find /usr/lib -maxdepth 1 \\( -type f -o -type l \\) -print0 >> {shlex.quote(remote_list)} 2>/dev/null || true
+tar czf {shlex.quote(remote_tar)} --warning=no-file-changed --null --files-from {shlex.quote(remote_list)} 2>/tmp/rk3588_sysroot_tar.err || true
+test -f {shlex.quote(remote_tar)}
+""",
         timeout=2400,
     )
 
@@ -140,7 +160,12 @@ echo "ros: $(bash -lc 'source /opt/ros/noetic/setup.bash 2>/dev/null; echo ${ROS
     finally:
         sftp.close()
 
-    sudo_run(client, args.password, f"rm -f {shlex.quote(remote_tar)} /tmp/rk3588_sysroot_version.txt", timeout=60)
+    sudo_run(
+        client,
+        args.password,
+        f"rm -f {shlex.quote(remote_tar)} {shlex.quote(remote_list)} /tmp/rk3588_sysroot_version.txt",
+        timeout=60,
+    )
     client.close()
 
     version_path.write_text(version, encoding="utf-8")

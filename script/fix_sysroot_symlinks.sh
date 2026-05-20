@@ -29,11 +29,7 @@ SYSROOT_PATH="$(cd "$SYSROOT_PATH" && pwd)"
 
 print_info "修复 sysroot 符号链接: $SYSROOT_PATH"
 
-if command -v symlinks &> /dev/null; then
-    print_info "使用 symlinks 工具修复..."
-    symlinks -cr "$SYSROOT_PATH"
-else
-    print_info "symlinks 工具不可用，使用内置实现..."
+fix_absolute_symlinks() {
     FIXED=0
     SKIPPED=0
     while IFS= read -r link; do
@@ -53,45 +49,54 @@ else
         fi
     done < <(find "$SYSROOT_PATH" -type l)
     print_info "修复完成: 已修复 $FIXED, 已跳过 $SKIPPED"
-fi
+}
 
-# 验证
-print_info "验证符号链接..."
-TOTAL=$(find "$SYSROOT_PATH" -type l | wc -l)
-ABSOLUTE=0
-DANGLING=0
-DANGLING_LIST=""
+verify_symlinks() {
+    print_info "验证符号链接..."
+    TOTAL=$(find "$SYSROOT_PATH" -type l | wc -l)
+    ABSOLUTE=0
+    DANGLING=0
+    DANGLING_LIST=""
 
-while IFS= read -r link; do
-    target=$(readlink "$link")
-    if [[ "$target" == /* ]]; then
-        ((ABSOLUTE++)) || true
-    fi
-    if [ ! -e "$link" ]; then
-        ((DANGLING++)) || true
-        if [ $DANGLING -le 20 ]; then
-            DANGLING_LIST="${DANGLING_LIST}\n  $link -> $target"
+    while IFS= read -r link; do
+        target=$(readlink "$link")
+        if [[ "$target" == /* ]]; then
+            ((ABSOLUTE++)) || true
         fi
+        if [ ! -e "$link" ]; then
+            ((DANGLING++)) || true
+            if [ $DANGLING -le 20 ]; then
+                DANGLING_LIST="${DANGLING_LIST}\n  $link -> $target"
+            fi
+        fi
+    done < <(find "$SYSROOT_PATH" -type l)
+
+    print_info "=========================================="
+    print_info "符号链接修复统计"
+    print_info "=========================================="
+    print_info "  总符号链接数: $TOTAL"
+    print_info "  残留绝对链接: $ABSOLUTE"
+    print_info "  悬空链接: $DANGLING"
+
+    if [ $ABSOLUTE -gt 0 ]; then
+        print_warn "仍有 $ABSOLUTE 个绝对符号链接"
     fi
-done < <(find "$SYSROOT_PATH" -type l)
 
-print_info "=========================================="
-print_info "符号链接修复统计"
-print_info "=========================================="
-print_info "  总符号链接数: $TOTAL"
-print_info "  残留绝对链接: $ABSOLUTE"
-print_info "  悬空链接: $DANGLING"
+    if [ $DANGLING -gt 0 ]; then
+        print_warn "发现 $DANGLING 个悬空符号链接 (前 20 个):"
+        echo -e "$DANGLING_LIST"
+    fi
+}
 
-if [ $ABSOLUTE -gt 0 ]; then
-    print_warn "仍有 $ABSOLUTE 个绝对符号链接"
+if command -v symlinks &> /dev/null; then
+    print_info "使用 symlinks 工具修复..."
+    symlinks -cr "$SYSROOT_PATH"
+else
+    print_info "symlinks 工具不可用，使用内置实现..."
+    fix_absolute_symlinks
 fi
 
-if [ $DANGLING -gt 0 ]; then
-    print_warn "发现 $DANGLING 个悬空符号链接 (前 20 个):"
-    echo -e "$DANGLING_LIST"
-fi
-
-print_info "完成"
+verify_symlinks
 
 # Cross-toolchain compatibility fix:
 # Ubuntu 20.04 sysroots keep arch-specific headers under usr/include/aarch64-linux-gnu/.
@@ -123,3 +128,39 @@ if [ -d "$SYSROOT_PATH/usr/lib/aarch64-linux-gnu" ]; then
         ln -s ../lib/aarch64-linux-gnu "$CROSS_COMPAT_DIR/lib"
     fi
 fi
+
+# Some target rootfs tarballs contain libc/loader symlinks but not the regular
+# files they point to.  Debian/Ubuntu cross GCC packages provide ABI-matched
+# startup/runtime files under /usr/aarch64-linux-gnu/lib; copy missing files into
+# the sysroot without overwriting target-provided libraries.
+for CROSS_LIB_DIR in \
+    "$SYSROOT_PATH/../toolchain_root/usr/aarch64-linux-gnu/lib" \
+    "/usr/aarch64-linux-gnu/lib"
+do
+    if [ ! -d "$CROSS_LIB_DIR" ]; then
+        continue
+    fi
+
+    print_info "补齐 sysroot 缺失的 aarch64 运行时文件: $CROSS_LIB_DIR"
+    for DEST_LIB_DIR in \
+        "$SYSROOT_PATH/lib/aarch64-linux-gnu" \
+        "$SYSROOT_PATH/usr/lib/aarch64-linux-gnu"
+    do
+        mkdir -p "$DEST_LIB_DIR"
+        find "$CROSS_LIB_DIR" -maxdepth 1 \( -type f -o -type l \) | while read src; do
+            name="$(basename "$src")"
+            if [ ! -e "$DEST_LIB_DIR/$name" ] && [ ! -L "$DEST_LIB_DIR/$name" ]; then
+                cp -a "$src" "$DEST_LIB_DIR/"
+            fi
+        done
+    done
+done
+
+# The runtime fallback above may copy symlinks from the cross compiler package.
+# Normalize them after the copy as well, otherwise CMake's sysroot file checks
+# can see links like /lib/aarch64-linux-gnu/librt.so.1 as missing.
+print_info "二次修复补齐运行时后的 sysroot 符号链接..."
+fix_absolute_symlinks
+verify_symlinks
+
+print_info "完成"

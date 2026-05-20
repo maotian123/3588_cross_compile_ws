@@ -10,6 +10,13 @@ if [ -z "$SYSROOT" ]; then
     exit 1
 fi
 
+if [ ! -d "$SYSROOT" ]; then
+    echo "ERROR: $SYSROOT not found"
+    exit 1
+fi
+
+SYSROOT="$(cd "$SYSROOT" && pwd)"
+
 SHARE_DIR="$SYSROOT/opt/ros/noetic/share"
 CMAKE_DIR="$SYSROOT/usr/lib/aarch64-linux-gnu/cmake"
 USR_CMAKE_DIR="$SYSROOT/usr/lib/cmake"
@@ -66,6 +73,10 @@ with open(path, 'r') as f:
 # Rewrite target-board absolute paths to paths inside the sysroot.  This covers
 # ROS package configs that export /opt/ros/noetic and vendor configs under
 # /usr/local/lib/cmake, not just /usr paths.
+old_sysroot = r'/(?:[^\s";()$/]+/)*sysroot_base'
+c = re.sub(old_sysroot, sysroot, c)
+c = re.sub(r'\$\{[^}]+\}' + re.escape(sysroot), sysroot, c)
+
 def prefix_sysroot(m):
     sep, prefix = m.group(1), m.group(2)
     start = m.start(2)
@@ -99,6 +110,10 @@ with open(path, 'r') as f:
     c = f.read()
 # pkg-config may be consumed by CMake without PKG_CONFIG_SYSROOT_DIR rewriting.
 # Keep package-relative variables intact, but rewrite hard-coded absolute flags.
+old_sysroot = r'/(?:[^\s]+/)*sysroot_base'
+c = re.sub(old_sysroot, sysroot, c)
+c = re.sub(r'\$\{[^}]+\}' + re.escape(sysroot), sysroot, c)
+
 def prefix_flag(m):
     flag, path = m.group(1), m.group(2)
     return flag + path if path.startswith(sysroot) else flag + sysroot + path

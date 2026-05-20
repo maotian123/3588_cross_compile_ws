@@ -6,3 +6,5 @@
 - Target changed to Ubuntu 20.04 / ROS1 Noetic / GCC 9.4 / Qt5 on RK3588.
 - Build source changed to `src/loc_map`, currently linked to `/home/user/work_ws/loc_map` for testing.
 - Build order changed to `LocUtils -> msf_loc -> slam_ui`.
+- Expanded documentation into README plus RK3588-specific build, from-zero setup, AI adaptation, and board runtime verification docs.
+- Added CI/CD Docker path for fixed x86 build environments while keeping the direct host cross compile path for local debugging.

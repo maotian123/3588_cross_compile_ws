@@ -1,0 +1,65 @@
+# syntax=docker/dockerfile:1
+FROM ubuntu:20.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG RK3588_WS=/opt/rk3588/cross_compile_ws
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    binutils-aarch64-linux-gnu \
+    build-essential \
+    ca-certificates \
+    cmake \
+    file \
+    findutils \
+    g++-aarch64-linux-gnu \
+    gcc-aarch64-linux-gnu \
+    git \
+    libgl1-mesa-dev \
+    libglu1-mesa-dev \
+    make \
+    pkg-config \
+    python3 \
+    python3-catkin-pkg \
+    python3-empy \
+    python3-numpy \
+    python3-paramiko \
+    python3-rospkg \
+    python3-yaml \
+    ripgrep \
+    qtbase5-dev-tools \
+    rsync \
+    symlinks \
+    tar \
+    xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV RK3588_IMAGE_WORKSPACE=${RK3588_WS}
+ENV RK3588_CROSS_COMPILE_SYSROOT=${RK3588_WS}/sysroot_base
+ENV RK3588_WORKSPACE_DIR=${RK3588_WS}
+ENV CATKIN_PREFIX_PATH=${RK3588_WS}/sysroot_base/opt/ros/noetic
+ENV CMAKE_PREFIX_PATH=${RK3588_WS}/install:${RK3588_WS}/sysroot_base/opt/ros/noetic:${RK3588_WS}/sysroot_base/usr:${RK3588_WS}/sysroot_base/usr/local
+ENV PKG_CONFIG_SYSROOT_DIR=${RK3588_WS}/sysroot_base
+ENV PKG_CONFIG_LIBDIR=${RK3588_WS}/sysroot_base/usr/lib/aarch64-linux-gnu/pkgconfig:${RK3588_WS}/sysroot_base/usr/lib/pkgconfig:${RK3588_WS}/sysroot_base/usr/share/pkgconfig:${RK3588_WS}/sysroot_base/usr/local/lib/pkgconfig:${RK3588_WS}/sysroot_base/opt/ros/noetic/lib/pkgconfig
+
+WORKDIR ${RK3588_WS}
+
+RUN mkdir -p ./arch ./src ./build ./install \
+    && chmod -R a+rwx ./src ./build ./install
+
+COPY cmake/ ./cmake/
+COPY script/ ./script/
+COPY Makefile CHANGELOG.md CLAUDE.md README.md ./
+COPY arch/rk3588_sysroot.tar.gz ./arch/rk3588_sysroot.tar.gz
+
+RUN chmod +x ./script/*.sh \
+    && ./script/setup_cross_compile_env.sh \
+    && ./script/fix_pcl_ros_paths.sh "${RK3588_WS}/sysroot_base" \
+    && find ./sysroot_base -name '*.bak' -delete \
+    && rm -f ./arch/rk3588_sysroot.tar.gz \
+    && chmod -R a+rwx ./src ./build ./install \
+    && ln -sf ${RK3588_WS}/script/rk3588_image_build.sh /usr/local/bin/rk3588-cross-build
+
+CMD ["/bin/bash"]

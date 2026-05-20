@@ -1,6 +1,6 @@
 # RK3588 Target Info
 
-Confirmed on `2026-05-20` by SSH to `sfzt@10.10.10.50`.
+Confirmed on `2026-05-20` and rechecked on `2026-05-21` by SSH to `sfzt@10.10.10.50`.
 
 ```text
 hostname: Ubuntu
@@ -47,3 +47,10 @@ GeographicLib=1.50.1
 Conclusion:
 
 Use a generic Ubuntu Focal `aarch64-linux-gnu` GCC 9.x cross compiler with the RK3588 sysroot extracted from this board. The NVIDIA Bootlin GCC 9.3 toolchain from the Orin workflow is not the target-matched default for this Rockchip board.
+
+Related docs:
+
+- [RK3588_ROS1_宿主机交叉编译指南.md](RK3588_ROS1_宿主机交叉编译指南.md)
+- [RK3588_CI_Docker_交叉编译指南.md](RK3588_CI_Docker_交叉编译指南.md)
+- [从零构建RK3588交叉编译环境完整指南.md](从零构建RK3588交叉编译环境完整指南.md)
+- [RK3588_板端运行验证记录.md](RK3588_板端运行验证记录.md)
