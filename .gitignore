@@ -1,0 +1,73 @@
+# Keep this repository to logic/config/docs only.
+# Do not commit generated sysroots, toolchains, build outputs, deploy/test payloads, or local credentials.
+
+# Local/editor state
+.DS_Store
+.idea/
+.vscode/
+.cache/
+.claude/
+.ssh/
+*.swp
+*.swo
+*~
+
+# Build and install outputs
+build/
+install/
+devel/
+log/
+logs/
+Testing/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Generated environment and source links
+cross_compile_env.sh
+src/
+
+# Sysroot and extracted target filesystem
+sysroot_base/
+sysroot*/
+rootfs/
+rootfs*/
+
+# Toolchains and downloaded packages
+toolchain/
+toolchain_root/
+toolchain_pkgs/
+*.deb
+
+# Sysroot archives and extraction diagnostics
+arch/
+*.tar
+*.tar.gz
+*.tgz
+*.tar.xz
+*.zip
+*.tmp
+
+# Native/target binaries and libraries
+*.o
+*.obj
+*.a
+*.la
+*.lo
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+
+# Runtime logs and temporary test payloads
+*.log
+*.out
+*.err
+core
+core.*
+rk3588_*_payload*
+rk3588_*_staging/
+
