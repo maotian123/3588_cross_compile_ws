@@ -129,6 +129,22 @@ if [ -d "$SYSROOT_PATH/usr/lib/aarch64-linux-gnu" ]; then
     fi
 fi
 
+# Some RK3588 rootfs snapshots install the GTSAM CMake export under
+# usr/lib/cmake/GTSAM but leave libmetis-gtsam.so in /lib/aarch64-linux-gnu.
+# The export checks usr/lib/aarch64-linux-gnu/libmetis-gtsam.so, so provide a
+# sysroot-local symlink instead of patching generated CMake package files.
+GTSAM_EXPORTS="$SYSROOT_PATH/usr/lib/cmake/GTSAM/GTSAM-exports.cmake"
+GTSAM_METIS_FROM="$SYSROOT_PATH/lib/aarch64-linux-gnu/libmetis-gtsam.so"
+GTSAM_METIS_TO="$SYSROOT_PATH/usr/lib/aarch64-linux-gnu/libmetis-gtsam.so"
+if [ -f "$GTSAM_EXPORTS" ] && grep -q "metis-gtsam" "$GTSAM_EXPORTS"; then
+    if [ ! -e "$GTSAM_METIS_TO" ] && [ -e "$GTSAM_METIS_FROM" ]; then
+        print_info "补齐 GTSAM metis-gtsam 导出库路径..."
+        mkdir -p "$(dirname "$GTSAM_METIS_TO")"
+        rel_target=$(python3 -c "import os, sys; print(os.path.relpath(sys.argv[1], os.path.dirname(sys.argv[2])))" "$GTSAM_METIS_FROM" "$GTSAM_METIS_TO")
+        ln -s "$rel_target" "$GTSAM_METIS_TO"
+    fi
+fi
+
 # Some target rootfs tarballs contain libc/loader symlinks but not the regular
 # files they point to.  Debian/Ubuntu cross GCC packages provide ABI-matched
 # startup/runtime files under /usr/aarch64-linux-gnu/lib; copy missing files into

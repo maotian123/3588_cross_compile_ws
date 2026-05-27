@@ -145,6 +145,67 @@ COMMON_CMAKE_ARGS=(
     -DBUILD_TESTING=OFF
 )
 
+copy_sysroot_runtime_lib() {
+    local src="$1"
+    local dst="$INSTALL_DIR/lib/$(basename "$src")"
+
+    mkdir -p "$INSTALL_DIR/lib"
+    if [ -L "$src" ]; then
+        local target_abs
+        target_abs="$(readlink -f "$src" 2>/dev/null || true)"
+        if [ -n "$target_abs" ] && [ -f "$target_abs" ]; then
+            local target_base
+            target_base="$(basename "$target_abs")"
+            if [ "$target_base" = "$(basename "$src")" ]; then
+                rm -f "$dst"
+                cp -aL "$src" "$dst"
+            else
+                if [ ! -e "$INSTALL_DIR/lib/$target_base" ]; then
+                    cp -aL "$target_abs" "$INSTALL_DIR/lib/$target_base"
+                fi
+                ln -snf "$target_base" "$dst"
+            fi
+        else
+            rm -f "$dst"
+            cp -a "$src" "$dst"
+        fi
+    else
+        rm -f "$dst"
+        cp -a "$src" "$dst"
+    fi
+}
+
+copy_external_gtsam_runtime_libs() {
+    local copied=0
+    local lib_dirs=(
+        "$RK3588_CROSS_COMPILE_SYSROOT/usr/lib/aarch64-linux-gnu"
+        "$RK3588_CROSS_COMPILE_SYSROOT/lib/aarch64-linux-gnu"
+    )
+    local patterns=(
+        "libgtsam.so*"
+        "libmetis-gtsam.so*"
+    )
+
+    for lib_dir in "${lib_dirs[@]}"; do
+        [ -d "$lib_dir" ] || continue
+        for pattern in "${patterns[@]}"; do
+            shopt -s nullglob
+            local files=("$lib_dir"/$pattern)
+            shopt -u nullglob
+            for file in "${files[@]}"; do
+                copy_sysroot_runtime_lib "$file"
+                copied=1
+            done
+        done
+    done
+
+    if [ "$copied" = "1" ]; then
+        print_info "Copied external GTSAM runtime libs to $INSTALL_DIR/lib"
+    else
+        print_warn "External GTSAM runtime libs were not found in sysroot"
+    fi
+}
+
 configure_and_build() {
     local pkg="$1"
     local source_dir="${PKG_PATHS[$pkg]}"
@@ -162,6 +223,7 @@ configure_and_build() {
                 -DCOMPILE_METHOD=CATKIN
                 -DUSE_CROSS_COMPILE=OFF
                 -DUSE_INTERNAL_LIBS=ON
+                -DUSE_INTERNAL_GTSAM=OFF
             )
             ;;
         msf_loc)
@@ -202,6 +264,9 @@ configure_and_build() {
     if [ -z "$BUILD_TARGET" ] || [ "$BUILD_TARGET" = "install" ] || [ "$pkg" = "LocUtils" ]; then
         print_info "Installing $pkg to $INSTALL_DIR"
         cmake --install "$pkg_build_dir"
+        if [ "$pkg" = "LocUtils" ]; then
+            copy_external_gtsam_runtime_libs
+        fi
     elif [ "$pkg" = "msf_loc" ] || [ "$pkg" = "slam_ui" ]; then
         print_info "Skipping install for targeted downstream build: $pkg"
     fi
