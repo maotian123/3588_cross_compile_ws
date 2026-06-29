@@ -57,9 +57,15 @@ def main() -> None:
     require("docker commit" in image_builder_text, "image builder must commit the prebuilt install into the image")
     require("locutils_prebuilt.sh save" in image_builder_text, "image builder must save LocUtils manifest")
     require("PREBUILT_LOCUTILS_TREE" in image_builder_text, "image builder must pass the source hash into the image")
+    require("mktemp -d" in image_builder_text, "image builder must use a temporary build source")
+    require("rsync -a" in image_builder_text, "image builder must copy loc_map to the temporary build source")
     require(
-        '-v "$LOC_MAP_REAL:/tmp/loc_map_src"' in image_builder_text,
-        "image builder must mount loc_map read-write because LocUtils writes third-party libs into LocUtils/libs",
+        '-v "$LOC_MAP_BUILD_SRC:/tmp/loc_map_src"' in image_builder_text,
+        "image builder must mount the temporary loc_map source read-write",
+    )
+    require(
+        "$LOC_MAP_REAL:/tmp/loc_map_src" not in image_builder_text,
+        "image builder must not mount the real loc_map source read-write",
     )
     require(
         ':/tmp/loc_map_src:ro' not in image_builder_text,

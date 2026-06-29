@@ -13,6 +13,15 @@ BUILD_JOBS="${RK3588_BUILD_JOBS:-2}"
 PUSH_IMAGE="${RK3588_PUSH_IMAGE:-0}"
 PREBUILT_DIR="${RK3588_PREBUILT_LOCUTILS_DIR:-/opt/rk3588/cross_compile_ws/prebuilt_locutils}"
 CONTAINER_NAME="${RK3588_PREBUILD_CONTAINER:-rk3588-locutils-prebuild-$$}"
+TMP_DIR=""
+
+cleanup() {
+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    if [ -n "$TMP_DIR" ]; then
+        rm -rf "$TMP_DIR"
+    fi
+}
+trap cleanup EXIT
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "ERROR: docker is not installed or not in PATH" >&2
@@ -39,11 +48,25 @@ echo "[prebuild-image] loc_map source: $LOC_MAP_REAL"
 echo "[prebuild-image] LocUtils hash: $LOCUTILS_TREE_HASH"
 echo "[prebuild-image] source ref: $SOURCE_REF"
 
+TMP_DIR="$(mktemp -d)"
+LOC_MAP_BUILD_SRC="$TMP_DIR/loc_map"
+rsync -a --delete \
+    --exclude='.git/' \
+    --exclude='.cache/' \
+    --exclude='build/' \
+    --exclude='build*/' \
+    --exclude='install/' \
+    --exclude='loc_install/' \
+    --exclude='rk3588_build/' \
+    --exclude='rk3588_install/' \
+    --exclude='__pycache__/' \
+    --exclude='*.pyc' \
+    "$LOC_MAP_REAL/" "$LOC_MAP_BUILD_SRC/"
+
 docker build -f "$WORKSPACE_DIR/docker/Dockerfile.rk3588_cross_compile" -t "$BASE_IMAGE" "$WORKSPACE_DIR"
 
-docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 docker run --name "$CONTAINER_NAME" --init \
-    -v "$LOC_MAP_REAL:/tmp/loc_map_src" \
+    -v "$LOC_MAP_BUILD_SRC:/tmp/loc_map_src" \
     -e RK3588_BUILD_JOBS="$BUILD_JOBS" \
     -e RK3588_PREBUILT_LOCUTILS_DIR="$PREBUILT_DIR" \
     -e PREBUILT_LOCUTILS_TREE="$LOCUTILS_TREE_HASH" \
