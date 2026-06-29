@@ -43,7 +43,7 @@ docker build -f "$WORKSPACE_DIR/docker/Dockerfile.rk3588_cross_compile" -t "$BAS
 
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1 || true
 docker run --name "$CONTAINER_NAME" --init \
-    -v "$LOC_MAP_REAL:/tmp/loc_map_src:ro" \
+    -v "$LOC_MAP_REAL:/tmp/loc_map_src" \
     -e RK3588_BUILD_JOBS="$BUILD_JOBS" \
     -e RK3588_PREBUILT_LOCUTILS_DIR="$PREBUILT_DIR" \
     -e PREBUILT_LOCUTILS_TREE="$LOCUTILS_TREE_HASH" \

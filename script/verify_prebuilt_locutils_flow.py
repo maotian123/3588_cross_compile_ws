@@ -57,6 +57,14 @@ def main() -> None:
     require("docker commit" in image_builder_text, "image builder must commit the prebuilt install into the image")
     require("locutils_prebuilt.sh save" in image_builder_text, "image builder must save LocUtils manifest")
     require("PREBUILT_LOCUTILS_TREE" in image_builder_text, "image builder must pass the source hash into the image")
+    require(
+        '-v "$LOC_MAP_REAL:/tmp/loc_map_src"' in image_builder_text,
+        "image builder must mount loc_map read-write because LocUtils writes third-party libs into LocUtils/libs",
+    )
+    require(
+        ':/tmp/loc_map_src:ro' not in image_builder_text,
+        "image builder must not mount loc_map read-only",
+    )
 
     require(
         "RK3588_PREBUILT_LOCUTILS_DIR" in dockerfile,
