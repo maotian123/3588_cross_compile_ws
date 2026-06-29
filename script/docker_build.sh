@@ -33,5 +33,6 @@ docker run --rm --init \
     -v "$LOCAL_INSTALL_DIR:$CONTAINER_WS/install" \
     -w "$CONTAINER_WS" \
     -e RK3588_BUILD_JOBS="$BUILD_JOBS" \
+    -e RK3588_USE_PREBUILT_LOCUTILS="${RK3588_USE_PREBUILT_LOCUTILS:-0}" \
     "$IMAGE" \
     rk3588-cross-build "$@"

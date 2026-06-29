@@ -24,6 +24,7 @@ def main() -> None:
     locutils_prebuilt = REPO_ROOT / "script/locutils_prebuilt.sh"
     image_builder = REPO_ROOT / "script/build_prebuilt_locutils_image.sh"
     compile_sh = read("script/compile.sh")
+    docker_build_sh = read("script/docker_build.sh")
     dockerfile = read("docker/Dockerfile.rk3588_cross_compile")
 
     require(locutils_prebuilt.exists(), "script/locutils_prebuilt.sh must exist")
@@ -75,6 +76,10 @@ def main() -> None:
     require(
         "RK3588_PREBUILT_LOCUTILS_DIR" in dockerfile,
         "Dockerfile must define the prebuilt LocUtils location",
+    )
+    require(
+        'RK3588_USE_PREBUILT_LOCUTILS="${RK3588_USE_PREBUILT_LOCUTILS:-0}"' in docker_build_sh,
+        "docker_build.sh must forward RK3588_USE_PREBUILT_LOCUTILS into the container",
     )
 
     for rel in [
