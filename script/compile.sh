@@ -26,6 +26,8 @@ BUILD_DIR="$WORKSPACE_DIR/build"
 INSTALL_DIR="$WORKSPACE_DIR/install"
 TOOLCHAIN_FILE="$WORKSPACE_DIR/cmake/toolchain.cmake"
 BUILD_JOBS="${RK3588_BUILD_JOBS:-2}"
+USE_PREBUILT_LOCUTILS="${RK3588_USE_PREBUILT_LOCUTILS:-0}"
+PREBUILT_LOCUTILS_SCRIPT="$WORKSPACE_DIR/script/locutils_prebuilt.sh"
 
 if [ -z "${RK3588_CROSS_COMPILE_SYSROOT:-}" ]; then
     print_error "RK3588_CROSS_COMPILE_SYSROOT is not set"
@@ -206,6 +208,29 @@ copy_external_gtsam_runtime_libs() {
     fi
 }
 
+restore_prebuilt_locutils_if_enabled() {
+    case "$USE_PREBUILT_LOCUTILS" in
+        1|true|TRUE|yes|YES|on|ON)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    if [ ! -x "$PREBUILT_LOCUTILS_SCRIPT" ]; then
+        print_warn "Prebuilt LocUtils script is missing or not executable: $PREBUILT_LOCUTILS_SCRIPT"
+        return 1
+    fi
+
+    if "$PREBUILT_LOCUTILS_SCRIPT" restore "$SRC_DIR" "$INSTALL_DIR"; then
+        print_info "Using prebuilt LocUtils install from Docker image"
+        return 0
+    fi
+
+    print_warn "Prebuilt LocUtils is unavailable or stale; building LocUtils from source"
+    return 1
+}
+
 configure_and_build() {
     local pkg="$1"
     local source_dir="${PKG_PATHS[$pkg]}"
@@ -215,6 +240,14 @@ configure_and_build() {
     if [ ! -f "$source_dir/CMakeLists.txt" ]; then
         print_error "CMakeLists.txt not found for $pkg: $source_dir"
         exit 1
+    fi
+
+    if [ "$pkg" = "LocUtils" ] && restore_prebuilt_locutils_if_enabled; then
+        return 0
+    fi
+
+    if [ "$pkg" != "LocUtils" ] && [ ! -f "$INSTALL_DIR/share/LocUtils/locutils-config.cmake" ]; then
+        restore_prebuilt_locutils_if_enabled || true
     fi
 
     case "$pkg" in

@@ -1,6 +1,6 @@
 # RK3588 (aarch64) ROS1 Noetic cross compile workspace
 
-.PHONY: help check-prereqs link-local-loc-map extract-sysroot setup-sysroot build build-locutils build-msf_loc build-slam_ui docker-image docker-build clean
+.PHONY: help check-prereqs link-local-loc-map extract-sysroot setup-sysroot build build-locutils build-msf_loc build-slam_ui docker-image docker-image-prebuilt-locutils docker-build clean
 
 WORKSPACE_DIR := $(shell pwd)
 ENV_FILE := $(WORKSPACE_DIR)/cross_compile_env.sh
@@ -25,6 +25,8 @@ help:
 	@echo "  build-msf_loc       Build only msf_loc"
 	@echo "  build-slam_ui       Build only slam_ui"
 	@echo "  docker-image        Build the fat CI Docker image with RK3588 sysroot ($(DOCKER_IMAGE))"
+	@echo "  docker-image-prebuilt-locutils"
+	@echo "                      Build/push image with current LocUtils preinstalled"
 	@echo "  docker-build        Build loc_map inside the fat CI Docker image"
 	@echo "  clean               Remove build/install/rk3588/sysroot/env outputs"
 	@echo ""
@@ -81,6 +83,9 @@ docker-image:
 		exit 1; \
 	fi
 	docker build -f docker/Dockerfile.rk3588_cross_compile -t "$(DOCKER_IMAGE)" .
+
+docker-image-prebuilt-locutils:
+	@./script/build_prebuilt_locutils_image.sh
 
 docker-build:
 	@RK3588_DOCKER_IMAGE="$(DOCKER_IMAGE)" ./script/docker_build.sh

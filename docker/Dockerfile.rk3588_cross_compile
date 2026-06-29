@@ -39,6 +39,7 @@ ENV LC_ALL=C.UTF-8
 ENV RK3588_IMAGE_WORKSPACE=${RK3588_WS}
 ENV RK3588_CROSS_COMPILE_SYSROOT=${RK3588_WS}/sysroot_base
 ENV RK3588_WORKSPACE_DIR=${RK3588_WS}
+ENV RK3588_PREBUILT_LOCUTILS_DIR=${RK3588_WS}/prebuilt_locutils
 ENV CATKIN_PREFIX_PATH=${RK3588_WS}/sysroot_base/opt/ros/noetic
 ENV CMAKE_PREFIX_PATH=${RK3588_WS}/install:${RK3588_WS}/sysroot_base/opt/ros/noetic:${RK3588_WS}/sysroot_base/usr:${RK3588_WS}/sysroot_base/usr/local
 ENV PKG_CONFIG_SYSROOT_DIR=${RK3588_WS}/sysroot_base
@@ -46,8 +47,8 @@ ENV PKG_CONFIG_LIBDIR=${RK3588_WS}/sysroot_base/usr/lib/aarch64-linux-gnu/pkgcon
 
 WORKDIR ${RK3588_WS}
 
-RUN mkdir -p ./arch ./src ./build ./install \
-    && chmod -R a+rwx ./src ./build ./install
+RUN mkdir -p ./arch ./src ./build ./install ./prebuilt_locutils \
+    && chmod -R a+rwx ./src ./build ./install ./prebuilt_locutils
 
 COPY cmake/ ./cmake/
 COPY script/ ./script/
@@ -59,7 +60,7 @@ RUN chmod +x ./script/*.sh \
     && ./script/fix_pcl_ros_paths.sh "${RK3588_WS}/sysroot_base" \
     && find ./sysroot_base -name '*.bak' -delete \
     && rm -f ./arch/rk3588_sysroot.tar.gz \
-    && chmod -R a+rwx ./src ./build ./install \
+    && chmod -R a+rwx ./src ./build ./install ./prebuilt_locutils \
     && ln -sf ${RK3588_WS}/script/rk3588_image_build.sh /usr/local/bin/rk3588-cross-build
 
 CMD ["/bin/bash"]
